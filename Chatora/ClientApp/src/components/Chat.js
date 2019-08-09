@@ -6,13 +6,15 @@ export class Chat extends Component {
     static displayName = Chat.name;
     myUsername = new Date().getTime();
     connection = null;
-
+    keyPressTimer = null;
+    numberOfKeys = 0;
     constructor(props) {
         super(props);
         this.state = {
 
             messages: [],
-            text:''
+            text: '',
+            typing : false
         };
 
         this.send = this.send.bind(this);
@@ -33,18 +35,44 @@ export class Chat extends Component {
                 messages: [...this.state.messages, { username, message } ]
             });
         });
+
+        this.connection.on("typing", (username) => {
+            if(username != this.myUsername)
+                this.setState({
+                    typing: true
+                });
+        });
+
+        this.connection.on("notTyping", (username) => {
+            if (username != this.myUsername)
+                this.setState({
+                    typing: false
+                });
+        });
     }
 
 
     send(value) {
         this.connection.send("newMessage", this.myUsername, value)
-            //.then(() => tbMessage.value = "");
+            .then(() => this.setState({ text: ''}));
     }
 
     keyUpHandler(event){
         if (event.keyCode === 13) {
-            this.send(event.value);
+            this.send(event.target.value);
+            return;
         }
+
+        clearTimeout(this.keyPressTimer);
+        this.numberOfKeys++;
+
+        if (this.numberOfKeys % 3 === 0) {
+            this.connection.send("typing", this.myUsername)
+        }
+
+        this.keyPressTimer = setTimeout(function () {
+            this.connection.send("notTyping", this.myUsername)
+        }.bind(this), 1200);
     }
 
     clickHandler(event){
@@ -70,6 +98,14 @@ export class Chat extends Component {
         return (
             <div>
                 <h1>Chatora</h1>
+                <label id="lblMessage" for="tbMessage">Message:</label>
+                <input id="tbMessage" className="input-zone-input" type="text"
+                    onChange={this.handleChange}
+                    value={this.state.text}
+                    onKeyUp={this.keyUpHandler}
+                />
+                <button id="btnSend" onClick={this.handleSubmit}>Send</button>
+                {this.state.typing ? <span>Typing...</span> : null}
                 <p>This is a simple example of a React component.</p>
                 {
                     this.state.messages.map((value, key) => {
@@ -78,12 +114,7 @@ export class Chat extends Component {
                     })
                 }
 
-                <label id="lblMessage" for="tbMessage">Message:</label>
-                <input id="tbMessage" class="input-zone-input" type="text"
-                    onChange={this.handleChange}
-                    value={this.state.text}
-                />
-                <button id="btnSend" onClick={this.handleSubmit}>Send</button>
+                
                 
                 
             </div>
